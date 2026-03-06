@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SheetDrop — App</title>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-98EP92Z7SR"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-98EP92Z7SR');
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@500;700;800&family=Satoshi:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #05080f;
+  --surface: #0a0f1a;
+  --surface2: #0f1825;
+  --border: #151f30;
+  --border2: #1c2a40;
+  --text: #eef2ff;
+  --muted: #4a6080;
+  --dim: #2a3a52;
+  --green: #00e5a0;
+  --blue: #7dd3fc;
+  --header-bg: #080d18;
+  --row-odd: #0a0f1a;
+  --row-even: #0d1420;
+  --row-hover: #111c2e;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--text); font-family: 'Satoshi', sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
+
+/* Topbar */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 20px; border-bottom: 1px solid var(--border);
+  background: rgba(5,8,15,0.95); backdrop-filter: blur(10px);
+  position: sticky; top: 0; z-index: 200; flex-shrink: 0;
+}
+.nav-logo { display: flex; align-items: center; gap: 8px; text-decoration: none; }
+.logo-mark { width: 28px; height: 28px; border-radius: 7px; background: linear-gradient(135deg, var(--green), #00a870); display: flex; align-items: center; justify-content: center; font-size: 13px; }
+.logo-text { font-family: 'Cabinet Grotesk', sans-serif; font-size: 15px; font-weight: 800; color: var(--text); }
+.logo-text span { color: var(--green); }
+.topbar-right { display: flex; align-items: center; gap: 10px; }
+.file-info { font-size: 12px; color: var(--muted); }
+.file-info strong { color: var(--green); }
+.btn { padding: 6px 14px; border-radius: 7px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: 'Satoshi', sans-serif; transition: all 0.15s; border: 1px solid var(--border2); background: var(--surface2); color: var(--muted); }
+.btn:hover { color: var(--text); border-color: var(--muted); }
+.btn-green { background: var(--green); border-color: transparent; color: #000; font-weight: 700; }
+.btn-green:hover { background: #00ffb3; color: #000; }
+#file-input { display: none; }
+.back-link { font-size: 12px; color: var(--muted); text-decoration: none; display: flex; align-items: center; gap: 4px; }
+.back-link:hover { color: var(--text); }
+
+/* Drop zone */
+#drop-zone {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  padding: 40px 20px; text-align: center;
+}
+#drop-zone.drag-over .drop-box { border-color: var(--green); background: rgba(0,229,160,0.04); transform: scale(1.01); }
+.drop-box {
+  border: 2px dashed var(--border2); border-radius: 20px;
+  padding: 64px 72px; max-width: 520px; width: 100%;
+  transition: all 0.2s; cursor: pointer;
+}
+.drop-box:hover { border-color: var(--green); background: rgba(0,229,160,0.02); }
+.drop-icon { width: 72px; height: 72px; margin: 0 auto 24px; background: linear-gradient(135deg, rgba(0,229,160,0.12), rgba(0,184,122,0.08)); border-radius: 18px; display: flex; align-items: center; justify-content: center; font-size: 32px; }
+.drop-title { font-family: 'Cabinet Grotesk', sans-serif; font-size: 24px; font-weight: 800; margin-bottom: 10px; }
+.drop-sub { font-size: 14px; color: var(--muted); line-height: 1.6; margin-bottom: 28px; }
+.drop-types { display: flex; gap: 8px; justify-content: center; }
+.type-badge { padding: 4px 12px; border-radius: 6px; font-size: 11px; font-weight: 700; border: 1px solid var(--border2); color: var(--muted); background: var(--surface2); font-family: 'Cabinet Grotesk', sans-serif; }
+
+/* Toolbar */
+#toolbar { display: none; padding: 9px 16px; border-bottom: 1px solid var(--border); background: var(--surface); gap: 8px; flex-wrap: wrap; align-items: center; flex-shrink: 0; }
+#toolbar.visible { display: flex; }
+.search-wrap { position: relative; min-width: 180px; max-width: 280px; }
+.search-wrap input { width: 100%; padding: 6px 10px 6px 30px; border-radius: 7px; border: 1px solid var(--border2); background: var(--surface2); color: var(--text); font-size: 12px; font-family: 'Satoshi', sans-serif; outline: none; }
+.search-wrap input:focus { border-color: var(--green); }
+.search-wrap input::placeholder { color: var(--muted); }
+.search-icon { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 12px; }
+.toolbar-stat { font-size: 12px; color: var(--muted); }
+.toolbar-stat strong { color: var(--green); }
+.sheet-tabs { display: flex; gap: 4px; margin-left: auto; }
+.sheet-tab { padding: 4px 11px; border-radius: 6px; font-size: 11px; font-weight: 600; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; transition: all 0.15s; font-family: 'Satoshi', sans-serif; }
+.sheet-tab.active { border-color: var(--green); background: rgba(0,229,160,0.08); color: var(--green); }
+
+/* Active filters bar */
+#active-filters { display: none; padding: 7px 16px; background: var(--surface); border-bottom: 1px solid var(--border); gap: 6px; flex-wrap: wrap; align-items: center; flex-shrink: 0; }
+#active-filters.visible { display: flex; }
+.filter-label { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-right: 2px; }
+.filter-chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 20px; background: rgba(0,229,160,0.1); border: 1px solid rgba(0,229,160,0.25); font-size: 11px; color: var(--green); font-weight: 500; }
+.filter-chip button { background: none; border: none; color: var(--green); cursor: pointer; font-size: 13px; line-height: 1; padding: 0; opacity: 0.6; }
+.filter-chip button:hover { opacity: 1; }
+.clear-all { font-size: 11px; color: #f87171; cursor: pointer; background: none; border: none; font-family: 'Satoshi', sans-serif; font-weight: 600; }
+.clear-all:hover { text-decoration: underline; }
+
+/* Table container */
+#table-container { display: none; flex: 1; overflow: auto; }
+#table-container.visible { display: block; }
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+thead { position: sticky; top: 0; z-index: 50; }
+thead tr.header-row { background: var(--header-bg); border-bottom: 1px solid var(--border2); }
+th { padding: 10px 13px; text-align: left; font-family: 'Cabinet Grotesk', sans-serif; font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; white-space: nowrap; border-right: 1px solid var(--border); }
+th.sortable { cursor: pointer; user-select: none; transition: color 0.15s, background 0.15s; }
+th.sortable:hover { color: var(--text); background: rgba(255,255,255,0.02); }
+th.sorted-asc::after { content: ' ↑'; color: var(--green); }
+th.sorted-desc::after { content: ' ↓'; color: var(--green); }
+th.rnh { color: var(--dim); width: 44px; text-align: center; font-size: 9px; }
+thead tr.filter-row { background: #07101d; border-bottom: 2px solid var(--border2); }
+thead tr.filter-row th { padding: 5px 5px; }
+.col-filter-wrap { position: relative; }
+.col-filter-btn { width: 100%; padding: 4px 24px 4px 7px; border-radius: 5px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); font-size: 10px; font-family: 'Satoshi', sans-serif; cursor: pointer; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: border-color 0.15s; }
+.col-filter-btn:hover { border-color: var(--muted); }
+.col-filter-btn.has-filter { border-color: var(--green); color: var(--green); background: rgba(0,229,160,0.06); }
+.col-filter-btn .arrow { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); font-size: 9px; color: var(--muted); }
+
+/* Dropdown */
+.filter-dropdown { position: absolute; top: calc(100% + 3px); left: 0; min-width: 210px; max-width: 300px; background: #0b1422; border: 1px solid var(--border2); border-radius: 10px; box-shadow: 0 8px 32px rgba(0,0,0,0.6); z-index: 1000; overflow: hidden; animation: dropIn 0.12s ease; }
+@keyframes dropIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: none; } }
+.dd-search { padding: 7px; border-bottom: 1px solid var(--border); }
+.dd-search input { width: 100%; padding: 5px 9px; border-radius: 5px; border: 1px solid var(--border2); background: var(--surface2); color: var(--text); font-size: 11px; font-family: 'Satoshi', sans-serif; outline: none; }
+.dd-search input:focus { border-color: var(--green); }
+.dd-actions { display: flex; border-bottom: 1px solid var(--border); }
+.dd-action-btn { flex: 1; padding: 5px; font-size: 10px; font-weight: 600; cursor: pointer; background: none; border: none; color: var(--muted); font-family: 'Satoshi', sans-serif; transition: all 0.12s; }
+.dd-action-btn:hover { color: var(--green); background: rgba(0,229,160,0.05); }
+.dd-list { max-height: 200px; overflow-y: auto; padding: 3px 0; }
+.dd-item { display: flex; align-items: center; gap: 7px; padding: 5px 10px; cursor: pointer; transition: background 0.1s; font-size: 11px; }
+.dd-item:hover { background: rgba(255,255,255,0.03); }
+.dd-item input[type=checkbox] { accent-color: var(--green); width: 12px; height: 12px; cursor: pointer; flex-shrink: 0; }
+.dd-item label { cursor: pointer; color: var(--text); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dd-item label.num-val { color: var(--blue); }
+.dd-footer { padding: 7px; border-top: 1px solid var(--border); display: flex; gap: 5px; }
+.dd-apply { flex: 1; padding: 5px; border-radius: 5px; background: var(--green); border: none; color: #000; font-size: 11px; font-weight: 700; cursor: pointer; font-family: 'Cabinet Grotesk', sans-serif; }
+.dd-apply:hover { background: #00ffb3; }
+.dd-cancel { padding: 5px 10px; border-radius: 5px; border: 1px solid var(--border2); background: none; color: var(--muted); font-size: 11px; cursor: pointer; font-family: 'Satoshi', sans-serif; }
+
+/* Body */
+tbody tr { border-bottom: 1px solid var(--border); transition: background 0.08s; }
+tbody tr:nth-child(odd) { background: var(--row-odd); }
+tbody tr:nth-child(even) { background: var(--row-even); }
+tbody tr:hover { background: var(--row-hover); }
+td { padding: 8px 13px; color: var(--text); border-right: 1px solid var(--border); white-space: nowrap; max-width: 260px; overflow: hidden; text-overflow: ellipsis; line-height: 1.4; }
+td.rn { color: var(--dim); text-align: center; font-size: 10px; font-weight: 500; background: var(--header-bg) !important; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; color: var(--blue); font-weight: 500; }
+td.currency { text-align: right; font-variant-numeric: tabular-nums; color: var(--green); font-weight: 500; }
+mark { background: rgba(0,229,160,0.2); color: var(--text); border-radius: 2px; padding: 0 1px; }
+
+/* Pagination */
+#pagination { display: none; padding: 10px 16px; border-top: 1px solid var(--border); background: var(--surface); align-items: center; justify-content: center; gap: 5px; flex-wrap: wrap; flex-shrink: 0; }
+#pagination.visible { display: flex; }
+.pg-btn { padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border2); background: transparent; color: var(--muted); font-size: 11px; cursor: pointer; font-family: 'Satoshi', sans-serif; transition: all 0.12s; }
+.pg-btn:hover:not(:disabled) { color: var(--text); border-color: var(--muted); }
+.pg-btn.active { border-color: var(--green); background: rgba(0,229,160,0.08); color: var(--green); font-weight: 700; }
+.pg-btn:disabled { opacity: 0.2; cursor: default; }
+.pg-info { font-size: 11px; color: var(--muted); padding: 0 6px; }
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="index.html" class="nav-logo">
+    <div class="logo-mark">⬇</div>
+    <div class="logo-text">Sheet<span>Drop</span></div>
+  </a>
+  <div class="topbar-right">
+    <span class="file-info" id="file-info"></span>
+    <a href="index.html" class="back-link">← Home</a>
+    <label for="file-input" class="btn btn-green">Upload File</label>
+    <input type="file" id="file-input" accept=".xlsx,.xls,.csv">
+  </div>
+</div>
+
+<div id="drop-zone">
+  <label for="file-input" style="cursor:pointer;width:100%;display:flex;justify-content:center">
+    <div class="drop-box">
+      <div class="drop-icon">📂</div>
+      <div class="drop-title">Drop your spreadsheet</div>
+      <div class="drop-sub">Drag & drop any Excel or CSV file for an instant clean, beautiful view. Your data never leaves your device.</div>
+      <div class="drop-types">
+        <span class="type-badge">.xlsx</span>
+        <span class="type-badge">.xls</span>
+        <span class="type-badge">.csv</span>
+      </div>
+    </div>
+  </label>
+</div>
+
+<div id="toolbar">
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input type="text" id="search-input" placeholder="Search all columns…" oninput="handleSearch()">
+  </div>
+  <span class="toolbar-stat" id="row-count"></span>
+  <div class="sheet-tabs" id="sheet-tabs"></div>
+</div>
+
+<div id="active-filters">
+  <span class="filter-label">Filters:</span>
+  <div id="filter-chips"></div>
+  <button class="clear-all" onclick="clearAllFilters()">Clear all</button>
+</div>
+
+<div id="table-container">
+  <table id="data-table">
+    <thead id="table-head"></thead>
+    <tbody id="table-body"></tbody>
+  </table>
+</div>
+
+<div id="pagination"></div>
+
+<script>
+const PAGE_SIZE = 50;
+let allData=[], headers=[], filtered=[], sortCol=-1, sortDir=1, page=0, searchTerm='';
+let workbook=null, currentSheet='', colFilters={}, openDropdown=null, pendingFilter={};
+
+const dropZone = document.getElementById('drop-zone');
+dropZone.addEventListener('dragover', e=>{e.preventDefault();dropZone.classList.add('drag-over');});
+dropZone.addEventListener('dragleave', ()=>dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e=>{e.preventDefault();dropZone.classList.remove('drag-over');if(e.dataTransfer.files[0])loadFile(e.dataTransfer.files[0]);});
+document.getElementById('file-input').addEventListener('change', e=>{if(e.target.files[0])loadFile(e.target.files[0]);});
+
+function loadFile(file) {
+  document.getElementById('file-info').innerHTML=`<strong>${file.name}</strong> · ${(file.size/1024).toFixed(1)} KB`;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try { workbook=XLSX.read(e.target.result,{type:'binary'}); renderSheetTabs(); loadSheet(workbook.SheetNames[0]); }
+    catch(err){alert('Could not read file: '+err.message);}
+  };
+  reader.readAsBinaryString(file);
+}
+
+function renderSheetTabs() {
+  const tabs=document.getElementById('sheet-tabs'); tabs.innerHTML='';
+  workbook.SheetNames.forEach(name=>{
+    const btn=document.createElement('button'); btn.className='sheet-tab'+(name===currentSheet?' active':'');
+    btn.textContent=name; btn.onclick=()=>loadSheet(name); tabs.appendChild(btn);
+  });
+}
+
+function loadSheet(name) {
+  currentSheet=name;
+  document.querySelectorAll('.sheet-tab').forEach(t=>t.classList.toggle('active',t.textContent===name));
+  const ws=workbook.Sheets[name];
+  const json=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+  if(!json.length)return;
+  headers=json[0].map(h=>String(h));
+  allData=json.slice(1).filter(r=>r.some(c=>c!==''&&c!==null&&c!==undefined));
+  sortCol=-1;sortDir=1;page=0;searchTerm='';colFilters={};
+  document.getElementById('search-input').value='';
+  applyFilterSort(); showTable();
+}
+
+function isNum(v){return v!==''&&v!==null&&v!==undefined&&!isNaN(parseFloat(v))&&isFinite(v);}
+function isCur(h){const l=(h||'').toLowerCase();return l.includes('sale')||l.includes('cost')||l.includes('price')||l.includes('net')||l.includes('gross')||l.includes('deposit')||l.includes('tax')||l.includes('revenue');}
+
+function fmtVal(val,h) {
+  if(isCur(h)&&isNum(val)&&parseFloat(val)!==0) return '$'+parseFloat(val).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  if(isNum(val)) return parseFloat(val).toLocaleString('en-US');
+  return val;
+}
+
+function esc(t){return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function hl(text){if(!searchTerm)return esc(text);const re=new RegExp('('+searchTerm.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi');return esc(text).replace(re,'<mark>$1</mark>');}
+
+function applyFilterSort() {
+  filtered=allData.filter(row=>{
+    if(searchTerm&&!row.some(c=>String(c).toLowerCase().includes(searchTerm.toLowerCase())))return false;
+    for(const[ci,vals]of Object.entries(colFilters)){if(!vals||vals.size===0)continue;if(!vals.has(String(row[parseInt(ci)]??'')))return false;}
+    return true;
+  });
+  if(sortCol>=0){filtered.sort((a,b)=>{const av=a[sortCol],bv=b[sortCol];if(isNum(av)&&isNum(bv))return(parseFloat(av)-parseFloat(bv))*sortDir;return String(av).localeCompare(String(bv))*sortDir;});}
+}
+
+function getUniq(ci){const s=new Set();allData.forEach(r=>s.add(String(r[ci]??'')));return[...s].sort((a,b)=>isNum(a)&&isNum(b)?parseFloat(a)-parseFloat(b):a.localeCompare(b));}
+
+function openFilterDropdown(ci,btnEl) {
+  closeDropdown();
+  const allVals=getUniq(ci);
+  const selected=colFilters[ci]?new Set(colFilters[ci]):new Set(allVals);
+  pendingFilter[ci]=selected;
+  const dd=document.createElement('div'); dd.className='filter-dropdown'; dd.id='active-dd';
+  const sid='dd-s-'+ci;
+  dd.innerHTML=`<div class="dd-search"><input id="${sid}" type="text" placeholder="Search values…" oninput="ddSearch(${ci},this.value)"></div>
+    <div class="dd-actions"><button class="dd-action-btn" onclick="ddAll(${ci},true)">Select All</button><button class="dd-action-btn" onclick="ddAll(${ci},false)">Clear All</button></div>
+    <div class="dd-list" id="dd-list-${ci}"></div>
+    <div class="dd-footer"><button class="dd-cancel" onclick="closeDropdown()">Cancel</button><button class="dd-apply" onclick="applyCol(${ci})">Apply</button></div>`;
+  btnEl.parentElement.appendChild(dd);
+  openDropdown={dd,ci,allVals};
+  renderDdList(ci,allVals,'');
+  setTimeout(()=>document.getElementById(sid)?.focus(),50);
+  setTimeout(()=>document.addEventListener('click',outsideClick),10);
+}
+
+function renderDdList(ci,vals,search) {
+  const list=document.getElementById('dd-list-'+ci); if(!list)return;
+  const f2=search?vals.filter(v=>v.toLowerCase().includes(search.toLowerCase())):vals;
+  const sel=pendingFilter[ci];
+  list.innerHTML=f2.map(v=>{const chk=sel.has(v)?'checked':'';const nc=isNum(v)?' num-val':'';const disp=esc(v===''?'(blank)':v);
+    return`<div class="dd-item"><input type="checkbox" id="cb-${ci}-${esc(v)}" ${chk} onchange="ddToggle(${ci},'${esc(v).replace(/'/g,"\\'")}',this.checked)"><label for="cb-${ci}-${esc(v)}" class="${nc}">${disp}</label></div>`;
+  }).join('')||'<div style="padding:8px 10px;font-size:11px;color:var(--muted)">No values</div>';
+}
+
+function ddSearch(ci,val){if(openDropdown)renderDdList(ci,openDropdown.allVals,val);}
+function ddToggle(ci,val,chk){if(!pendingFilter[ci])pendingFilter[ci]=new Set();if(chk)pendingFilter[ci].add(val);else pendingFilter[ci].delete(val);}
+function ddAll(ci,all){if(!openDropdown)return;pendingFilter[ci]=all?new Set(openDropdown.allVals):new Set();renderDdList(ci,openDropdown.allVals,'');}
+
+function applyCol(ci) {
+  const sel=pendingFilter[ci]; const all=getUniq(ci);
+  if(!sel||sel.size===all.length)delete colFilters[ci]; else colFilters[ci]=new Set(sel);
+  closeDropdown(); page=0; applyFilterSort(); renderTable(); renderChips();
+}
+
+function closeDropdown(){const dd=document.getElementById('active-dd');if(dd)dd.remove();openDropdown=null;document.removeEventListener('click',outsideClick);}
+function outsideClick(e){const dd=document.getElementById('active-dd');if(dd&&!dd.contains(e.target)&&!e.target.classList.contains('col-filter-btn'))closeDropdown();}
+
+function clearColFilter(ci){delete colFilters[ci];page=0;applyFilterSort();renderTable();renderChips();}
+function clearAllFilters(){colFilters={};page=0;applyFilterSort();renderTable();renderChips();}
+
+function renderChips() {
+  const bar=document.getElementById('active-filters'); const chips=document.getElementById('filter-chips');
+  const active=Object.entries(colFilters).filter(([,v])=>v&&v.size>0);
+  if(!active.length){bar.classList.remove('visible');return;}
+  bar.classList.add('visible');
+  chips.innerHTML=active.map(([ci,vals])=>{
+    const h=esc(headers[parseInt(ci)]||'Col '+ci);
+    const prev=[...vals].slice(0,2).map(v=>esc(v||'(blank)')).join(', ')+(vals.size>2?` +${vals.size-2}`:'');
+    return`<div class="filter-chip"><strong>${h}:</strong> ${prev} <button onclick="clearColFilter(${ci})">×</button></div>`;
+  }).join('');
+}
+
+function renderTable() {
+  const head=document.getElementById('table-head'); const body=document.getElementById('table-body');
+  const hr='<tr class="header-row"><th class="rnh">#</th>'+headers.map((h,i)=>{let cls='sortable';if(sortCol===i)cls+=sortDir===1?' sorted-asc':' sorted-desc';return`<th class="${cls}" onclick="sortBy(${i})">${esc(h)}</th>`;}).join('')+'</tr>';
+  const fr='<tr class="filter-row"><th></th>'+headers.map((h,i)=>{const hf=colFilters[i]&&colFilters[i].size>0;const lbl=hf?`${colFilters[i].size}/${getUniq(i).length}`:'All';return`<th><div class="col-filter-wrap"><button class="col-filter-btn ${hf?'has-filter':''}" onclick="event.stopPropagation();openFilterDropdown(${i},this)">${esc(lbl)}<span class="arrow">▾</span></button></div></th>`;}).join('')+'</tr>';
+  head.innerHTML=hr+fr;
+
+  const start=page*PAGE_SIZE; const pageRows=filtered.slice(start,start+PAGE_SIZE);
+  if(!pageRows.length){body.innerHTML=`<tr><td colspan="${headers.length+1}" style="text-align:center;padding:48px;color:var(--muted);font-size:13px">No results match your filters</td></tr>`;}
+  else{body.innerHTML=pageRows.map((row,ri)=>{const rn=start+ri+1;const cells=headers.map((h,ci)=>{const raw=row[ci]!==undefined?row[ci]:'';const disp=fmtVal(raw,h);const hilit=searchTerm?hl(disp):esc(disp);let tc='';if(isCur(h)&&isNum(raw))tc='currency';else if(isNum(raw))tc='num';return`<td class="${tc}" title="${esc(String(raw))}">${hilit}</td>`;}).join('');return`<tr><td class="rn">${rn}</td>${cells}</tr>`;}).join('');}
+
+  document.getElementById('row-count').innerHTML=`<strong>${filtered.length.toLocaleString()}</strong> of ${allData.length.toLocaleString()} rows`;
+  renderPagination();
+}
+
+function renderPagination() {
+  const tp=Math.max(1,Math.ceil(filtered.length/PAGE_SIZE)); const pg=document.getElementById('pagination');
+  if(tp<=1){pg.classList.remove('visible');return;} pg.classList.add('visible');
+  let h=`<button class="pg-btn" onclick="goPage(0)" ${page===0?'disabled':''}>«</button><button class="pg-btn" onclick="goPage(${page-1})" ${page===0?'disabled':''}>‹</button>`;
+  let s=Math.max(0,page-2),e=Math.min(tp-1,page+2);
+  if(s>0)h+=`<button class="pg-btn" onclick="goPage(0)">1</button>${s>1?'<span class="pg-info">…</span>':''}`;
+  for(let i=s;i<=e;i++)h+=`<button class="pg-btn ${i===page?'active':''}" onclick="goPage(${i})">${i+1}</button>`;
+  if(e<tp-1)h+=`${e<tp-2?'<span class="pg-info">…</span>':''}<button class="pg-btn" onclick="goPage(${tp-1})">${tp}</button>`;
+  h+=`<button class="pg-btn" onclick="goPage(${page+1})" ${page===tp-1?'disabled':''}>›</button><button class="pg-btn" onclick="goPage(${tp-1})" ${page===tp-1?'disabled':''}>»</button><span class="pg-info">Page ${page+1}/${tp}</span>`;
+  pg.innerHTML=h;
+}
+
+function goPage(p){const tp=Math.ceil(filtered.length/PAGE_SIZE);page=Math.max(0,Math.min(tp-1,p));renderTable();document.getElementById('table-container').scrollTop=0;}
+function sortBy(col){if(sortCol===col)sortDir*=-1;else{sortCol=col;sortDir=1;}page=0;applyFilterSort();renderTable();}
+function handleSearch(){searchTerm=document.getElementById('search-input').value;page=0;applyFilterSort();renderTable();}
+
+function showTable() {
+  document.getElementById('drop-zone').style.display='none';
+  document.getElementById('toolbar').classList.add('visible');
+  document.getElementById('table-container').classList.add('visible');
+  renderTable(); renderChips();
+}
+</script>
+</body>
+</html>
