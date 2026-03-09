@@ -263,9 +263,11 @@ function loadSheet(name) {
 
 function isNum(v){return v!==''&&v!==null&&v!==undefined&&!isNaN(parseFloat(v))&&isFinite(v);}
 function isCur(h){const l=(h||'').toLowerCase();return l.includes('sale')||l.includes('cost')||l.includes('price')||l.includes('net')||l.includes('gross')||l.includes('deposit')||l.includes('tax')||l.includes('revenue');}
+function isYearCol(h){const l=(h||'').toLowerCase();return l.includes('year')||l.includes('founded')||l.includes('yr')||l==='date';}
 
 function fmtVal(val,h) {
   if(isCur(h)&&isNum(val)&&parseFloat(val)!==0) return '$'+parseFloat(val).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  if(isYearCol(h)&&isNum(val)) return String(Math.round(parseFloat(val)));
   if(isNum(val)) return parseFloat(val).toLocaleString('en-US');
   return val;
 }
@@ -347,7 +349,7 @@ function renderTable() {
 
   const start=page*PAGE_SIZE; const pageRows=filtered.slice(start,start+PAGE_SIZE);
   if(!pageRows.length){body.innerHTML=`<tr><td colspan="${headers.length+1}" style="text-align:center;padding:48px;color:var(--muted);font-size:13px">No results match your filters</td></tr>`;}
-  else{body.innerHTML=pageRows.map((row,ri)=>{const rn=start+ri+1;const cells=headers.map((h,ci)=>{const raw=row[ci]!==undefined?row[ci]:'';const disp=fmtVal(raw,h);const hilit=searchTerm?hl(disp):esc(disp);let tc='';if(isCur(h)&&isNum(raw))tc='currency';else if(isNum(raw))tc='num';return`<td class="${tc}" title="${esc(String(raw))}">${hilit}</td>`;}).join('');return`<tr><td class="rn">${rn}</td>${cells}</tr>`;}).join('');}
+  else{body.innerHTML=pageRows.map((row,ri)=>{const rn=start+ri+1;const cells=headers.map((h,ci)=>{const raw=row[ci]!==undefined?row[ci]:'';const disp=fmtVal(raw,h);const hilit=searchTerm?hl(disp):esc(disp);let tc='';if(isCur(h)&&isNum(raw))tc='currency';else if(isYearCol(h)&&isNum(raw))tc='';else if(isNum(raw))tc='num';return`<td class="${tc}" title="${esc(String(raw))}">${hilit}</td>`;}).join('');return`<tr><td class="rn">${rn}</td>${cells}</tr>`;}).join('');}
 
   document.getElementById('row-count').innerHTML=`<strong>${filtered.length.toLocaleString()}</strong> of ${allData.length.toLocaleString()} rows`;
   renderPagination();
