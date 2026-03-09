@@ -31,6 +31,24 @@
   --row-even: #0d1420;
   --row-hover: #111c2e;
 }
+body.light {
+  --bg: #f4f6f9;
+  --surface: #ffffff;
+  --surface2: #f0f2f5;
+  --border: #dde2ea;
+  --border2: #c8d0dc;
+  --text: #111827;
+  --muted: #6b7280;
+  --dim: #9ca3af;
+  --green: #00a870;
+  --blue: #2563eb;
+  --header-bg: #e8ecf2;
+  --row-odd: #ffffff;
+  --row-even: #f7f9fc;
+  --row-hover: #eef2ff;
+}
+body.light .topbar { background: rgba(244,246,249,0.97); }
+body.light .filter-dropdown { background: #ffffff; }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
 body { background: var(--bg); color: var(--text); font-family: 'Satoshi', sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
@@ -53,7 +71,8 @@ body { background: var(--bg); color: var(--text); font-family: 'Satoshi', sans-s
 .btn:hover { color: var(--text); border-color: var(--muted); }
 .btn-green { background: var(--green); border-color: transparent; color: #000; font-weight: 700; }
 .btn-green:hover { background: #00ffb3; color: #000; }
-#file-input { display: none; }
+.btn-icon { padding: 6px 10px; border-radius: 7px; font-size: 14px; cursor: pointer; border: 1px solid var(--border2); background: var(--surface2); color: var(--muted); transition: all 0.15s; line-height: 1; }
+.btn-icon:hover { color: var(--text); border-color: var(--muted); }
 .back-link { font-size: 12px; color: var(--muted); text-decoration: none; display: flex; align-items: center; gap: 4px; }
 .back-link:hover { color: var(--text); }
 
@@ -175,8 +194,10 @@ mark { background: rgba(0,229,160,0.2); color: var(--text); border-radius: 2px; 
   <div class="topbar-right">
     <span class="file-info" id="file-info"></span>
     <a href="index.html" class="back-link">← Home</a>
+    <button class="btn-icon" id="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode">🌙</button>
+    <button class="btn" id="export-btn" onclick="exportCSV()" style="display:none">⬇ Export CSV</button>
     <label for="file-input" class="btn btn-green">Upload File</label>
-    <input type="file" id="file-input" accept=".xlsx,.xls,.csv">
+    <input type="file" id="file-input" accept=".xlsx,.xls,.csv" style="display:none">
   </div>
 </div>
 
@@ -264,12 +285,31 @@ function loadSheet(name) {
 function isNum(v){return v!==''&&v!==null&&v!==undefined&&!isNaN(parseFloat(v))&&isFinite(v);}
 function isCur(h){const l=(h||'').toLowerCase();return l.includes('sale')||l.includes('cost')||l.includes('price')||l.includes('net')||l.includes('gross')||l.includes('deposit')||l.includes('tax')||l.includes('revenue');}
 function isYearCol(h){const l=(h||'').toLowerCase();return l.includes('year')||l.includes('founded')||l.includes('yr')||l==='date';}
+function isPct(h,v){const l=(h||'').toLowerCase();const isPctHeader=l.includes('rate')||l.includes('margin')||l.includes('%')||l.includes('percent');return isPctHeader&&isNum(v)&&Math.abs(parseFloat(v))<=1;}
 
 function fmtVal(val,h) {
   if(isCur(h)&&isNum(val)&&parseFloat(val)!==0) return '$'+parseFloat(val).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  if(isPct(h,val)) return (parseFloat(val)*100).toFixed(1)+'%';
   if(isYearCol(h)&&isNum(val)) return String(Math.round(parseFloat(val)));
   if(isNum(val)) return parseFloat(val).toLocaleString('en-US');
   return val;
+}
+
+// Theme
+function toggleTheme(){
+  const light=document.body.classList.toggle('light');
+  document.getElementById('theme-toggle').textContent=light?'🌑':'🌙';
+  localStorage.setItem('sd-theme',light?'light':'dark');
+}
+(function(){if(localStorage.getItem('sd-theme')==='light'){document.body.classList.add('light');document.getElementById('theme-toggle').textContent='🌑';}})();
+
+// Export CSV
+function exportCSV(){
+  if(!filtered.length)return;
+  const rows=[headers.join(','),...filtered.map(r=>headers.map((_,i)=>{const v=r[i]??'';const s=String(v);return s.includes(',')||s.includes('"')||s.includes('\n')?'"'+s.replace(/"/g,'""')+'"':s;}).join(','))];
+  const blob=new Blob([rows.join('\n')],{type:'text/csv'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=(currentSheet||'sheetdrop')+'.csv';a.click();
 }
 
 function esc(t){return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -349,7 +389,7 @@ function renderTable() {
 
   const start=page*PAGE_SIZE; const pageRows=filtered.slice(start,start+PAGE_SIZE);
   if(!pageRows.length){body.innerHTML=`<tr><td colspan="${headers.length+1}" style="text-align:center;padding:48px;color:var(--muted);font-size:13px">No results match your filters</td></tr>`;}
-  else{body.innerHTML=pageRows.map((row,ri)=>{const rn=start+ri+1;const cells=headers.map((h,ci)=>{const raw=row[ci]!==undefined?row[ci]:'';const disp=fmtVal(raw,h);const hilit=searchTerm?hl(disp):esc(disp);let tc='';if(isCur(h)&&isNum(raw))tc='currency';else if(isYearCol(h)&&isNum(raw))tc='';else if(isNum(raw))tc='num';return`<td class="${tc}" title="${esc(String(raw))}">${hilit}</td>`;}).join('');return`<tr><td class="rn">${rn}</td>${cells}</tr>`;}).join('');}
+  else{body.innerHTML=pageRows.map((row,ri)=>{const rn=start+ri+1;const cells=headers.map((h,ci)=>{const raw=row[ci]!==undefined?row[ci]:'';const disp=fmtVal(raw,h);const hilit=searchTerm?hl(disp):esc(disp);let tc='';if(isCur(h)&&isNum(raw))tc='currency';else if(isPct(h,raw))tc='num';else if(isYearCol(h)&&isNum(raw))tc='';else if(isNum(raw))tc='num';return`<td class="${tc}" title="${esc(String(raw))}">${hilit}</td>`;}).join('');return`<tr><td class="rn">${rn}</td>${cells}</tr>`;}).join('');}
 
   document.getElementById('row-count').innerHTML=`<strong>${filtered.length.toLocaleString()}</strong> of ${allData.length.toLocaleString()} rows`;
   renderPagination();
@@ -375,6 +415,7 @@ function showTable() {
   document.getElementById('drop-zone').style.display='none';
   document.getElementById('toolbar').classList.add('visible');
   document.getElementById('table-container').classList.add('visible');
+  document.getElementById('export-btn').style.display='';
   renderTable(); renderChips();
 }
 </script>
